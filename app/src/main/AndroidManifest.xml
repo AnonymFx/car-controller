@@ -27,7 +27,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <service android:name=".CarControllService"
+        <service android:name=".CarControlService"
+            android:enabled="true"
             android:exported="false"/>
     </application>
 
