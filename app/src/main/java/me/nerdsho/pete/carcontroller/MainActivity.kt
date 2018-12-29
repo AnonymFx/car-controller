@@ -19,6 +19,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val MAX_MOTOR = 100
         private const val MAX_STEERING = 100
+        private const val REFRESH_INTERVAL = 100L
     }
 
     private var carControlService: CarControlService? = null
@@ -52,6 +53,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 MotionEvent.ACTION_MOVE -> {
                     updateSteering(event, v)
+                }
+                MotionEvent.ACTION_UP -> {
+                    currentSteering = 0
+                    sendCommand(currentMotor, 0)
                 }
             }
             true
@@ -105,7 +110,7 @@ class MainActivity : AppCompatActivity() {
 
         sendingTask = doAsync {
             while (true) {
-                sleep(100)
+                sleep(REFRESH_INTERVAL)
                 sendCommand(currentMotor, currentSteering)
             }
         }

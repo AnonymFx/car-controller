@@ -15,12 +15,11 @@ import android.widget.Toast
 
 class CarControlService : Service() {
     companion object {
-        private const val ENABLE_BLUETOOTH_REQUEST = 0
         private const val CAR_CONTROLLER_MAC = "FB:F4:20:A6:08:40"
         private const val CAR_CONTROL_SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb"
         private const val CAR_CONTROL_WRITE_CHARACTERISTIC_UUID = "00001235-0000-1000-8000-00805f9b34fb"
-        private val SCAN_PERIOD: Long = 10000
-        private val ONGOING_NOTIFICATION_ID = 1
+        private const val SCAN_PERIOD: Long = 10000
+        private const val ONGOING_NOTIFICATION_ID = 1
     }
 
     private val binder = CarControlBinder()
@@ -39,8 +38,8 @@ class CarControlService : Service() {
                     this@CarControlService.gatt = gatt
                     this@CarControlService.gatt?.discoverServices()
                 }
-                BluetoothProfile.STATE_DISCONNECTED -> {
-//                    gatt.close()
+                BluetoothProfile.STATE_DISCONNECTING -> {
+                    gatt.close()
                     this@CarControlService.gatt = null
                     this@CarControlService.carControl = null
                 }
@@ -97,11 +96,6 @@ class CarControlService : Service() {
         Toast.makeText(this, "Car control service stopping...", Toast.LENGTH_SHORT).show()
     }
 
-//    override fun onHandleIntent(intent: Intent?) {
-//        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-//        Toast.makeText(this, "Received intent", Toast.LENGTH_SHORT).show()
-//    }
-
     override fun onBind(intent: Intent?): IBinder? {
         return binder
     }
@@ -109,16 +103,20 @@ class CarControlService : Service() {
     private fun scanLeDevice(enable: Boolean) {
         when (enable) {
             true -> {
-                handler.postDelayed({
-                    isScanning = false
-                    bluetoothAdapter.bluetoothLeScanner.stopScan(scanCallback)
-                }, SCAN_PERIOD)
-                isScanning = true
-                bluetoothAdapter.bluetoothLeScanner.startScan(scanCallback)
+                if (!isScanning) {
+                    handler.postDelayed({
+                        isScanning = false
+                        bluetoothAdapter.bluetoothLeScanner.stopScan(scanCallback)
+                    }, SCAN_PERIOD)
+                    isScanning = true
+                    bluetoothAdapter.bluetoothLeScanner.startScan(scanCallback)
+                }
             }
             else -> {
-                isScanning = false
-                bluetoothAdapter.bluetoothLeScanner.stopScan(scanCallback)
+                if (isScanning) {
+                    isScanning = false
+                    bluetoothAdapter.bluetoothLeScanner.stopScan(scanCallback)
+                }
             }
         }
     }
@@ -142,6 +140,11 @@ class CarControlService : Service() {
         carControl?.setValue("$command\n")
         val status = gatt?.writeCharacteristic(carControl)
         Log.d("SentCommand", "Sent $command to characteristic $carControl with status $status")
+        if (status == false) {
+            gatt?.disconnect()
+            gatt = null
+            carControl = null
+        }
     }
 
     inner class CarControlBinder : Binder() {
