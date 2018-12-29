@@ -17,13 +17,15 @@ import java.util.concurrent.Future
 
 class MainActivity : AppCompatActivity() {
     companion object {
-        private const val MAX_MOTOR = 50F
-        private const val MAX_STEERING = 100F
+        private const val MAX_MOTOR = 100
+        private const val MAX_STEERING = 100
     }
 
     private var carControlService: CarControlService? = null
     private var sendingTask: Future<Unit>? = null
-    private var currentCommand: String = "m0s0"
+    private var currentSteering = 0
+    private var currentMotor = 0
+    //    private var currentCommand: String = "m0s0"
     private val serviceConnection = object : ServiceConnection {
 
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
@@ -43,33 +45,28 @@ class MainActivity : AppCompatActivity() {
 
         Intent(this, CarControlService::class.java).also { intent -> startForegroundService(intent) }
 
-        joystick.setOnTouchListener { v, event ->
+        steering_control_view.setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    startBackgroundTask()
+                    updateSteering(event, v)
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    var relativeX = event.x
-                    if (relativeX < 0) {
-                        relativeX = 0F
-                    } else if (relativeX > v.width) {
-                        relativeX = v.width.toFloat()
-                    }
-                    val steeringValue = Math.round(((relativeX - v.width/2.0)/v.width) * MAX_STEERING)
-
-                    var relativeY = event.y
-                    if (relativeY < 0) {
-                        relativeY = 0F
-                    } else if (relativeY > v.width) {
-                        relativeY = v.width.toFloat()
-                    }
-                    val motorValue = Math.round(((relativeY - v.height/2.0)/v.height) * MAX_MOTOR)
-
-                    currentCommand = "m${motorValue}s$steeringValue"
+                    updateSteering(event, v)
+                }
+            }
+            true
+        }
+        motor_control_view.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    updateMotor(event, v)
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    updateMotor(event, v)
                 }
                 MotionEvent.ACTION_UP -> {
-                    sendCommand("m0s0")
-                    stopBackgroundTask()
+                    currentMotor = 0
+                    sendCommand(0, currentSteering)
                 }
             }
             true
@@ -81,6 +78,16 @@ class MainActivity : AppCompatActivity() {
         Intent(this, CarControlService::class.java).also { intent ->
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startBackgroundTask()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopBackgroundTask()
     }
 
     override fun onStop() {
@@ -98,10 +105,8 @@ class MainActivity : AppCompatActivity() {
 
         sendingTask = doAsync {
             while (true) {
-//                Log.d("motor_control", (motor_control.progress - 100).toString())
-//                Log.d("steering_control", (steering_control.progress - 100).toString())
                 sleep(100)
-                sendCommand(currentCommand)
+                sendCommand(currentMotor, currentSteering)
             }
         }
     }
@@ -111,36 +116,43 @@ class MainActivity : AppCompatActivity() {
         sendingTask = null
     }
 
-    private fun sendCommand(command: String) {
+    private fun sendCommand(motor: Int, steering: Int) {
+        val command = "m${motor}s$steering"
         runOnUiThread {
             command_debug?.text = command
         }
         carControlService?.sendCommand(command)
     }
 
-//    private fun log(logEntry: String) {
-//        runOnUiThread { log_view.text = "$logEntry\n\n${log_view.text}" }
-//    }
+    private fun updateMotor(event: MotionEvent, v: View) {
+        var relativeY = event.y
+        if (relativeY < 0) {
+            relativeY = 0F
+        } else if (relativeY > v.height) {
+            relativeY = v.height.toFloat()
+        }
 
-    fun onClickSend(view: View) {
-        val command = "${command_view.text}"
-        sendCommand(command)
-    }
 
-    fun onClickStop(view: View) {
-        sendCommand("m0s0")
-        stopBackgroundTask()
-    }
+        val newMotorAbsolute = Math.round(
+            Math.pow(((2 * relativeY - v.height) / v.height).toDouble(), 2.0) * MAX_MOTOR
+        ).toInt()
 
-    fun onClickStart(view: View) {
-        startBackgroundTask()
-    }
-
-    fun onClickRestartService(view: View) {
-        stopService(Intent(this, CarControlService::class.java))
-        Intent(this, CarControlService::class.java).also { intent -> startForegroundService(intent) }
-        Intent(this, CarControlService::class.java).also { intent ->
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+//        currentMotor =
+        currentMotor = if (relativeY > v.height / 2) {
+            - newMotorAbsolute
+        } else {
+            newMotorAbsolute
         }
     }
+
+    private fun updateSteering(event: MotionEvent, v: View) {
+        var relativeX = event.x
+        if (relativeX < 0) {
+            relativeX = 0F
+        } else if (relativeX > v.width) {
+            relativeX = v.width.toFloat()
+        }
+        currentSteering = Math.round(((relativeX - v.width / 2.0) / v.width) * MAX_STEERING * 2).toInt()
+    }
+
 }

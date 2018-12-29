@@ -40,18 +40,11 @@ class CarControlService : Service() {
                     this@CarControlService.gatt?.discoverServices()
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
+//                    gatt.close()
                     this@CarControlService.gatt = null
                     this@CarControlService.carControl = null
                 }
             }
-        }
-
-        override fun onCharacteristicWrite(
-            gatt: BluetoothGatt?,
-            characteristic: BluetoothGattCharacteristic?,
-            status: Int
-        ) {
-            super.onCharacteristicWrite(gatt, characteristic, status)
         }
 
         // New services discovered
@@ -61,8 +54,6 @@ class CarControlService : Service() {
                     service.uuid.toString() == CAR_CONTROL_SERVICE_UUID
                 }
                     ?.characteristics?.find { characteristic -> characteristic.uuid.toString() == CAR_CONTROL_WRITE_CHARACTERISTIC_UUID }
-                carControl?.setValue("5\n")
-                gatt.writeCharacteristic(carControl)
             }
         }
     }
