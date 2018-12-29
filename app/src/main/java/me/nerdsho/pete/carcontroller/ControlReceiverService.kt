@@ -13,7 +13,7 @@ import java.util.concurrent.Future
 
 class ControlReceiverService : ForegroundService() {
     companion object {
-        private const val VALID_INPUT_PATTERN = "m(-)?\\d((\\d)?(\\d)?)s(-)?\\d((\\d)?(\\d)?)"
+        private const val VALID_INPUT_PATTERN = "m(-)?(100|\\d(\\d)?)s(-)?(100|\\d(\\d)?)"
     }
 
     override val notificationId = 2
@@ -59,6 +59,12 @@ class ControlReceiverService : ForegroundService() {
             while (udpSocket?.isClosed != true) {
                 val packet = DatagramPacket(ByteArray(11), 11)
                 udpSocket?.receive(packet)
+                val newLineIndex = packet.data.indexOf("\n".toByteArray(Charsets.UTF_8)[0])
+                if(newLineIndex == -1) {
+                    val message = String(packet.data)
+                    Log.d(this.javaClass.name, "No newline found in command $message, skipping")
+                    continue
+                }
                 val message = String(packet.data, 0, packet.data.indexOf("\n".toByteArray()[0]))
                 if (!VALID_INPUT_PATTERN.toRegex().matches(message)) {
                     Log.d(this.javaClass.canonicalName, "Received invalid message $message")

@@ -9,7 +9,8 @@ import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.util.Log
-import android.widget.Toast
+import org.jetbrains.anko.doAsync
+import java.lang.Thread.sleep
 
 class CarControlService : ForegroundService() {
     companion object {
@@ -62,7 +63,7 @@ class CarControlService : ForegroundService() {
             super.onScanResult(callbackType, result)
             if (result?.device?.address == CAR_CONTROLLER_MAC) {
                 val carController = result.device
-                carController?.connectGatt(this@CarControlService, false, connectGattCallback)
+                carController?.connectGatt(this@CarControlService, true, connectGattCallback)
             }
         }
     }
@@ -103,13 +104,22 @@ class CarControlService : ForegroundService() {
     }
 
     fun sendCommand(command: String) {
-        if (carControl == null) {
-            scanLeDevice(true)
+        if (carControl == null || gatt == null) {
+            if (!isScanning) {
+                scanLeDevice(true)
+            }
+            return
         }
 
-        Log.d(this.javaClass.canonicalName, "Sending command $command")
+        Log.d(
+            this.javaClass.canonicalName,
+            "Sending command $command with gatt $gatt and characteristic $carControl"
+        )
         carControl?.setValue("$command\n")
-        val status = gatt?.writeCharacteristic(carControl)
+        var status: Boolean? = false
+        if (carControl != null) {
+            status = gatt?.writeCharacteristic(carControl)
+        }
         if (status == false) {
             gatt?.disconnect()
             gatt = null

@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     updateMotor(event, v)
+                    startBackgroundTask()
                 }
                 MotionEvent.ACTION_MOVE -> {
                     updateMotor(event, v)
@@ -73,6 +74,7 @@ class MainActivity : AppCompatActivity() {
                 MotionEvent.ACTION_UP -> {
                     currentMotor = 0
                     sendCommand(0, currentSteering)
+                    stopBackgroundTask()
                 }
             }
             true
@@ -88,12 +90,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        startBackgroundTask()
     }
 
     override fun onPause() {
         super.onPause()
-        stopBackgroundTask()
     }
 
     override fun onStop() {
