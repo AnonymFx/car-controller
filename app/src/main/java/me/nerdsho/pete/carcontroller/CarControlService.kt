@@ -1,26 +1,27 @@
 package me.nerdsho.pete.carcontroller
 
-import android.app.*
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.util.Log
 import android.widget.Toast
 
-class CarControlService : Service() {
+class CarControlService : ForegroundService() {
     companion object {
         private const val CAR_CONTROLLER_MAC = "FB:F4:20:A6:08:40"
         private const val CAR_CONTROL_SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb"
         private const val CAR_CONTROL_WRITE_CHARACTERISTIC_UUID = "00001235-0000-1000-8000-00805f9b34fb"
         private const val SCAN_PERIOD: Long = 10000
-        private const val ONGOING_NOTIFICATION_ID = 1
     }
+
+    override val notificationId: Int = 1
+    override val notificationChannelId: String = "car_control_service"
+    override val friendlyServiceName: String = "Car control service"
 
     private val binder = CarControlBinder()
     private val bluetoothAdapter by lazy(LazyThreadSafetyMode.NONE) {
@@ -64,36 +65,16 @@ class CarControlService : Service() {
                 carController?.connectGatt(this@CarControlService, false, connectGattCallback)
             }
         }
-
-        override fun onScanFailed(errorCode: Int) {
-            super.onScanFailed(errorCode)
-        }
     }
 
     override fun onCreate() {
         super.onCreate()
-        Toast.makeText(this, "Car control service starting...", Toast.LENGTH_SHORT).show()
-
-        val channelId = createNotificationChannel("car_control_service", "Car control service")
-
-        val pendingIntent: PendingIntent =
-            Intent(this, MainActivity::class.java).let { notificationIntent ->
-                PendingIntent.getActivity(this, 0, notificationIntent, 0)
-            }
-
-        val notification: Notification = Notification.Builder(this, channelId)
-            .setContentTitle("Car control service")
-            .setContentIntent(pendingIntent)
-            .build()
-
-        startForeground(ONGOING_NOTIFICATION_ID, notification)
 
         scanLeDevice(true)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Toast.makeText(this, "Car control service stopping...", Toast.LENGTH_SHORT).show()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -121,25 +102,14 @@ class CarControlService : Service() {
         }
     }
 
-    private fun createNotificationChannel(channelId: String, channelName: String): String {
-        val chan = NotificationChannel(
-            channelId,
-            channelName, NotificationManager.IMPORTANCE_NONE
-        )
-        chan.lightColor = Color.BLUE
-        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        service.createNotificationChannel(chan)
-        return channelId
-    }
-
     fun sendCommand(command: String) {
         if (carControl == null) {
             scanLeDevice(true)
         }
+
+        Log.d(this.javaClass.canonicalName, "Sending command $command")
         carControl?.setValue("$command\n")
         val status = gatt?.writeCharacteristic(carControl)
-        Log.d("SentCommand", "Sent $command to characteristic $carControl with status $status")
         if (status == false) {
             gatt?.disconnect()
             gatt = null

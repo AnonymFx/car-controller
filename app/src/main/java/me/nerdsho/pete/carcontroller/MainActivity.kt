@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         Intent(this, CarControlService::class.java).also { intent -> startForegroundService(intent) }
+        Intent(this, ControlReceiverService::class.java).also { intent -> startForegroundService(intent) }
 
         steering_control_view.setOnTouchListener { v, event ->
             when (event.action) {
