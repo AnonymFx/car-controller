@@ -14,13 +14,13 @@ import java.util.concurrent.Future
 class ControlReceiverService : ForegroundService() {
     companion object {
         private const val VALID_INPUT_PATTERN = "m(-)?(100|\\d(\\d)?)s(-)?(100|\\d(\\d)?)"
+        const val UDP_PORT = 3001
     }
 
     override val notificationId = 2
     override val notificationChannelId = "control_receiver_service"
     override val friendlyServiceName = "Control Receiver Service"
 
-    private val udpPort = 3001
     private var listenerThread: Future<Unit>? = null
     private var udpSocket: DatagramSocket? = null
     private var controlService: CarControlService? = null
@@ -54,8 +54,8 @@ class ControlReceiverService : ForegroundService() {
 
     private fun startListening() {
         listenerThread = doAsync {
-            Log.d(this.javaClass.canonicalName, "Listening on port $udpPort")
-            udpSocket = DatagramSocket(udpPort)
+            Log.d(this.javaClass.canonicalName, "Listening on port $UDP_PORT")
+            udpSocket = DatagramSocket(UDP_PORT)
             while (udpSocket?.isClosed != true) {
                 val packet = DatagramPacket(ByteArray(11), 11)
                 udpSocket?.receive(packet)

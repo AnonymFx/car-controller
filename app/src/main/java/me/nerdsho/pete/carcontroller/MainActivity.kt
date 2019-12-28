@@ -7,7 +7,6 @@ import android.content.ServiceConnection
 import android.os.Bundle
 import android.os.IBinder
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import kotlinx.android.synthetic.main.activity_main.*
@@ -23,11 +22,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var carControlService: CarControlService? = null
+    private var udpSenderService: UdpSenderService? = null
     private var sendingTask: Future<Unit>? = null
     private var currentSteering = 0
     private var currentMotor = 0
-    //    private var currentCommand: String = "m0s0"
-    private val serviceConnection = object : ServiceConnection {
+    private val carControlConnection = object : ServiceConnection {
 
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             // We've bound to LocalService, cast the IBinder and get LocalService instance
@@ -39,6 +38,17 @@ class MainActivity : AppCompatActivity() {
             carControlService = null
         }
     }
+    private val udpSenderConnection = object : ServiceConnection {
+        override fun onServiceDisconnected(name: ComponentName?) {
+            udpSenderService = null
+        }
+
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as UdpSenderService.UdpSenderBinder
+            udpSenderService = binder.getService()
+        }
+
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,6 +56,7 @@ class MainActivity : AppCompatActivity() {
 
         Intent(this, CarControlService::class.java).also { intent -> startForegroundService(intent) }
         Intent(this, ControlReceiverService::class.java).also { intent -> startForegroundService(intent) }
+        Intent(this, UdpSenderService::class.java).also { intent -> startForegroundService(intent) }
 
         steering_control_view.setOnTouchListener { v, event ->
             when (event.action) {
@@ -84,7 +95,10 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         Intent(this, CarControlService::class.java).also { intent ->
-            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+            bindService(intent, carControlConnection, Context.BIND_AUTO_CREATE)
+        }
+        Intent(this, UdpSenderService::class.java).also { intent ->
+            bindService(intent, udpSenderConnection, Context.BIND_AUTO_CREATE)
         }
     }
 
@@ -98,7 +112,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        unbindService(serviceConnection)
+        unbindService(carControlConnection)
+        unbindService(udpSenderConnection)
         carControlService = null
         sendingTask?.cancel(true)
         sendingTask = null
@@ -127,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             command_debug?.text = command
         }
+        udpSenderService?.sendCommand(command)
         carControlService?.sendCommand(command)
     }
 
